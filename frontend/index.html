@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Processor — Dev</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --api: 'https://vav8z91xe4.execute-api.us-east-2.amazonaws.com/dev/upload';
+      --bg: #0b0c0f;
+      --surface: #141518;
+      --surface2: #1c1e23;
+      --border: #2a2d35;
+      --accent: #5be49b;
+      --accent2: #3fc97a;
+      --text: #f0f1f4;
+      --muted: #8a8f9e;
+      --danger: #f04f4f;
+      --warn: #f5a623;
+      --info: #5b9bf8;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    /* ── HEADER ─────────────────────────────────── */
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: var(--accent);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .logo-icon svg { width: 20px; height: 20px; }
+
+    .logo h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .logo h1 span { color: var(--accent); }
+
+    .env-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      background: #1a2e1f;
+      color: var(--accent);
+      border: 1px solid #2a4d35;
+      border-radius: 100px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .env-selector {
+      display: flex;
+      gap: 6px;
+    }
+
+    .env-btn {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 5px 12px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.5px;
+    }
+
+    .env-btn.active {
+      background: #1a2e1f;
+      color: var(--accent);
+      border-color: #2a4d35;
+    }
+
+    .env-btn:hover:not(.active) {
+      border-color: var(--muted);
+      color: var(--text);
+    }
+
+    /* ── MAIN ───────────────────────────────────── */
+    main {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 0;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* ── LEFT PANEL ─────────────────────────────── */
+    .upload-panel {
+      padding-right: 2rem;
+      border-right: 1px solid var(--border);
+    }
+
+    .panel-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── DROP ZONE ──────────────────────────────── */
+    .drop-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .drop-zone::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 0%, #5be49b08 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background: #141518;
+    }
+
+    .drop-zone.dragover { background: #0f1f15; }
+
+    .drop-icon {
+      width: 56px; height: 56px;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem;
+      border: 1px solid var(--border);
+    }
+
+    .drop-icon svg { width: 28px; height: 28px; stroke: var(--accent); }
+
+    .drop-zone h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .drop-zone p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .browse-btn {
+      display: inline-block;
+      padding: 8px 20px;
+      background: var(--accent);
+      color: #0b1a12;
+      border-radius: var(--radius-sm);
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .browse-btn:hover { background: var(--accent2); }
+
+    #file-input { display: none; }
+
+    /* ── PREVIEW AREA ───────────────────────────── */
+    .preview-area {
+      display: none;
+      margin-bottom: 1.5rem;
+    }
+
+    .preview-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .preview-thumb {
+      width: 56px; height: 56px;
+      border-radius: var(--radius-sm);
+      object-fit: cover;
+      background: var(--surface2);
+      flex-shrink: 0;
+    }
+
+    .preview-info { flex: 1; min-width: 0; }
+    .preview-name {
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .preview-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .remove-btn {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+
+    .remove-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── OPTIONS ────────────────────────────────── */
+    .options {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .options-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .option-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .option-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+    .option-label {
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .option-sub {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .chip {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 100px;
+      border: 1px solid;
+    }
+
+    .chip-green { background: #1a2e1f; color: var(--accent); border-color: #2a4d35; }
+    .chip-blue { background: #12213b; color: var(--info); border-color: #1a3560; }
+
+    /* ── ENDPOINT DISPLAY ───────────────────────── */
+    .endpoint-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+      word-break: break-all;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .endpoint-method {
+      color: var(--accent);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .endpoint-url { color: var(--muted); }
+
+    /* ── SUBMIT BUTTON ──────────────────────────── */
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: #0b1a12;
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      letter-spacing: -0.2px;
+    }
+
+    .submit-btn:hover:not(:disabled) { background: var(--accent2); transform: translateY(-1px); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .submit-btn.loading { background: var(--surface2); color: var(--muted); }
+
+    /* ── SPINNER ────────────────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid #333;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* ── RIGHT PANEL ────────────────────────────── */
+    .results-panel {
+      padding-left: 2rem;
+    }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+
+    .results-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .clear-btn {
+      font-size: 12px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: 'Syne', sans-serif;
+      padding: 0;
+    }
+
+    .clear-btn:hover { color: var(--danger); }
+
+    /* ── RESULT ITEMS ───────────────────────────── */
+    #results-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .result-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      animation: slideIn 0.25s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-item.success { border-left: 3px solid var(--accent); }
+    .result-item.error { border-left: 3px solid var(--danger); }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .result-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+
+    .status-dot.success { background: var(--accent); }
+    .status-dot.error { background: var(--danger); }
+
+    .result-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .result-filename {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .result-key {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+      background: #0f1f15;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      word-break: break-all;
+    }
+
+    .result-error-msg {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #f87171;
+      background: #1f0f0f;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* ── EMPTY STATE ────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+
+    .empty-state svg {
+      width: 40px; height: 40px;
+      stroke: var(--border);
+      margin-bottom: 1rem;
+    }
+
+    .empty-state p { font-size: 13px; }
+
+    /* ── PIPELINE DIAGRAM ───────────────────────── */
+    .pipeline {
+      margin-top: 2rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .pipeline-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .pipe-step {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      position: relative;
+    }
+
+    .pipe-step:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 15px;
+      top: 32px;
+      bottom: -2px;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .pipe-node {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      z-index: 1;
+    }
+
+    .pipe-step.active .pipe-node {
+      border-color: var(--accent);
+      background: #1a2e1f;
+      color: var(--accent);
+    }
+
+    .pipe-step.done .pipe-node {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #0b1a12;
+    }
+
+    .pipe-content {
+      padding: 4px 0 20px;
+    }
+
+    .pipe-name {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .pipe-desc {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── TOAST ──────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 20px;
+      font-size: 13px;
+      transition: transform 0.3s ease;
+      z-index: 100;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast.success { border-color: var(--accent); color: var(--accent); }
+    #toast.error { border-color: var(--danger); color: var(--danger); }
+
+    /* ── FOOTER ─────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1rem 2rem;
+      background: var(--surface);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer p {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+    }
+
+    .pulse-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .pulse-dot.active { animation: pulse 1.5s ease-in-out infinite; }
+
+    /* ── RESPONSIVE ─────────────────────────────── */
+    @media (max-width: 860px) {
+      main {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+      }
+      .upload-panel {
+        padding-right: 0;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 2rem;
+        margin-bottom: 2rem;
+      }
+      .results-panel { padding-left: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#0b1a12" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+    </div>
+    <h1>Image <span>Processor</span></h1>
+  </div>
+  <div class="header-right">
+    <div class="env-selector">
+      <button class="env-btn active" data-env="dev" data-url="https://vav8z91xe4.execute-api.us-east-2.amazonaws.com/dev/upload">DEV</button>
+      <button class="env-btn" data-env="qa" data-url="">QA</button>
+      <button class="env-btn" data-env="prod" data-url="">PROD</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ── LEFT ─────────────────────────────────── -->
+  <div class="upload-panel">
+    <p class="panel-label">Subir imagen</p>
+
+    <div class="endpoint-box">
+      <span class="endpoint-method">POST</span>
+      <span class="endpoint-url" id="endpoint-display">https://vav8z91xe4.execute-api.us-east-2.amazonaws.com/dev/upload</span>
+    </div>
+
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 16 12 12 8 16"/>
+          <line x1="12" y1="12" x2="12" y2="21"/>
+          <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+        </svg>
+      </div>
+      <h2>Arrastra tu imagen aquí</h2>
+      <p>jpg · png · gif · webp — máx. 10 MB</p>
+      <label class="browse-btn" for="file-input">Seleccionar archivo</label>
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/gif,image/webp" />
+    </div>
+
+    <div class="preview-area" id="preview-area">
+      <div class="preview-card">
+        <img class="preview-thumb" id="preview-thumb" src="" alt="" />
+        <div class="preview-info">
+          <div class="preview-name" id="preview-name"></div>
+          <div class="preview-meta" id="preview-meta"></div>
+        </div>
+        <button class="remove-btn" id="remove-btn" title="Quitar archivo">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="options">
+      <p class="options-title">Configuración del pipeline</p>
+      <div class="option-row">
+        <div>
+          <div class="option-label">Formato de salida</div>
+          <div class="option-sub">processed/ prefix</div>
+        </div>
+        <span class="chip chip-blue">PNG 40×40</span>
+      </div>
+      <div class="option-row">
+        <div>
+          <div class="option-label">Máscara</div>
+          <div class="option-sub">SVG circle mask</div>
+        </div>
+        <span class="chip chip-green">Circular</span>
+      </div>
+      <div class="option-row">
+        <div>
+          <div class="option-label">Encriptación</div>
+          <div class="option-sub">Server-side</div>
+        </div>
+        <span class="chip chip-green">AES-256</span>
+      </div>
+      <div class="option-row">
+        <div>
+          <div class="option-label">Cola</div>
+          <div class="option-sub">maxReceiveCount: 3</div>
+        </div>
+        <span class="chip chip-blue">SQS + DLQ</span>
+      </div>
+    </div>
+
+    <button class="submit-btn" id="submit-btn" disabled>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+      Enviar al pipeline
+    </button>
+
+    <!-- Pipeline visual -->
+    <div class="pipeline">
+      <p class="panel-label" style="margin-bottom: 1rem;">Flujo de procesamiento</p>
+      <div class="pipeline-steps">
+        <div class="pipe-step" id="step-api">
+          <div class="pipe-node">1</div>
+          <div class="pipe-content">
+            <div class="pipe-name">API Gateway HTTP v2</div>
+            <div class="pipe-desc">POST /upload · Payload 2.0 · CORS</div>
+          </div>
+        </div>
+        <div class="pipe-step" id="step-lambda-upload">
+          <div class="pipe-node">2</div>
+          <div class="pipe-content">
+            <div class="pipe-name">upload-lambda</div>
+            <div class="pipe-desc">nodejs20.x · 256MB · s3:PutObject</div>
+          </div>
+        </div>
+        <div class="pipe-step" id="step-s3">
+          <div class="pipe-node">3</div>
+          <div class="pipe-content">
+            <div class="pipe-name">S3 — uploads/</div>
+            <div class="pipe-desc">Versioning · AES-256 · 30d lifecycle</div>
+          </div>
+        </div>
+        <div class="pipe-step" id="step-sqs">
+          <div class="pipe-node">4</div>
+          <div class="pipe-content">
+            <div class="pipe-name">SQS Queue</div>
+            <div class="pipe-desc">ObjectCreated event · batch 5</div>
+          </div>
+        </div>
+        <div class="pipe-step" id="step-lambda-crop">
+          <div class="pipe-node">5</div>
+          <div class="pipe-content">
+            <div class="pipe-name">crop-lambda + sharp</div>
+            <div class="pipe-desc">40×40 · mask circular · PNG alpha</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT ─────────────────────────────────── -->
+  <div class="results-panel">
+    <div class="results-header">
+      <p class="panel-label" style="margin-bottom: 0;">Historial de uploads</p>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span class="results-count" id="results-count">0 imágenes</span>
+        <button class="clear-btn" id="clear-btn">Limpiar</button>
+      </div>
+    </div>
+
+    <div id="results-list">
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <p>Aún no has subido ninguna imagen.<br/>Selecciona un archivo para comenzar.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p>Image Processor Pipeline — AWS SAM · us-east-2</p>
+  <div class="status-indicator">
+    <div class="pulse-dot" id="status-dot"></div>
+    <span id="status-text">Listo</span>
+  </div>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+  // ── STATE ──────────────────────────────────────
+  let currentFile = null;
+  let currentEnv = 'dev';
+  let apiUrl = 'https://vav8z91xe4.execute-api.us-east-2.amazonaws.com/dev/upload';
+  let results = [];
+
+  // ── ELEMENTS ───────────────────────────────────
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const previewArea = document.getElementById('preview-area');
+  const previewThumb = document.getElementById('preview-thumb');
+  const previewName = document.getElementById('preview-name');
+  const previewMeta = document.getElementById('preview-meta');
+  const removeBtn = document.getElementById('remove-btn');
+  const submitBtn = document.getElementById('submit-btn');
+  const resultsList = document.getElementById('results-list');
+  const resultsCount = document.getElementById('results-count');
+  const clearBtn = document.getElementById('clear-btn');
+  const endpointDisplay = document.getElementById('endpoint-display');
+  const statusDot = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
+  const toast = document.getElementById('toast');
+
+  // ── ENV SELECTOR ───────────────────────────────
+  document.querySelectorAll('.env-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.env-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentEnv = btn.dataset.env;
+      const url = btn.dataset.url;
+      apiUrl = url;
+      endpointDisplay.textContent = url || `[deploy ${currentEnv.toUpperCase()} para obtener el endpoint]`;
+      if (!url) showToast(`Despliega el entorno ${currentEnv.toUpperCase()} con: sam deploy --config-env ${currentEnv}`, 'error');
+    });
+  });
+
+  // ── DRAG & DROP ────────────────────────────────
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  removeBtn.addEventListener('click', clearFile);
+
+  // ── FILE HANDLING ──────────────────────────────
+  function handleFile(file) {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      showToast('Tipo de archivo no soportado. Usa jpg, png, gif o webp.', 'error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('El archivo supera los 10 MB.', 'error');
+      return;
+    }
+    currentFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => { previewThumb.src = e.target.result; };
+    reader.readAsDataURL(file);
+    previewName.textContent = file.name;
+    previewMeta.textContent = `${formatBytes(file.size)} · ${file.type}`;
+    previewArea.style.display = 'block';
+    dropZone.style.display = 'none';
+    submitBtn.disabled = false;
+  }
+
+  function clearFile() {
+    currentFile = null;
+    fileInput.value = '';
+    previewArea.style.display = 'none';
+    dropZone.style.display = 'block';
+    submitBtn.disabled = true;
+    resetPipeline();
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  // ── SUBMIT ─────────────────────────────────────
+  submitBtn.addEventListener('click', async () => {
+    if (!currentFile) return;
+    if (!apiUrl) {
+      showToast(`Entorno ${currentEnv.toUpperCase()} no desplegado aún.`, 'error');
+      return;
+    }
+
+    setLoading(true);
+    animatePipeline();
+
+    const formData = new FormData();
+    formData.append('file', currentFile);
+
+    const startTime = Date.now();
+
+    try {
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        body: formData
+      });
+
+      const elapsed = Date.now() - startTime;
+      let data;
+      try { data = await res.json(); } catch { data = { message: await res.text() }; }
+
+      if (res.ok) {
+        addResult({
+          status: 'success',
+          filename: currentFile.name,
+          key: data.file || '(clave no retornada)',
+          message: data.message || 'Subida exitosa',
+          elapsed,
+          time: new Date().toLocaleTimeString()
+        });
+        showToast('Imagen subida exitosamente', 'success');
+        clearFile();
+      } else {
+        addResult({
+          status: 'error',
+          filename: currentFile.name,
+          message: data.message || `HTTP ${res.status}`,
+          elapsed,
+          time: new Date().toLocaleTimeString()
+        });
+        showToast(`Error: ${data.message || res.status}`, 'error');
+      }
+    } catch (err) {
+      const elapsed = Date.now() - startTime;
+      addResult({
+        status: 'error',
+        filename: currentFile.name,
+        message: err.message,
+        elapsed,
+        time: new Date().toLocaleTimeString()
+      });
+      showToast('Error de red. Verifica CORS o la URL del endpoint.', 'error');
+    } finally {
+      setLoading(false);
+      resetPipeline();
+    }
+  });
+
+  // ── RESULTS ────────────────────────────────────
+  function addResult(r) {
+    results.unshift(r);
+    renderResults();
+  }
+
+  function renderResults() {
+    if (!results.length) {
+      resultsList.innerHTML = `<div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <p>Aún no has subido ninguna imagen.<br/>Selecciona un archivo para comenzar.</p>
+      </div>`;
+    } else {
+      resultsList.innerHTML = results.map(r => `
+        <div class="result-item ${r.status}">
+          <div class="result-header">
+            <div class="result-status">
+              <div class="status-dot ${r.status}"></div>
+              ${r.status === 'success' ? 'Enviado al pipeline' : 'Error'}
+            </div>
+            <div class="result-time">${r.time} · ${r.elapsed}ms</div>
+          </div>
+          <div class="result-filename">${escapeHtml(r.filename)}</div>
+          ${r.status === 'success'
+            ? `<div class="result-key">${escapeHtml(r.key)}</div>`
+            : `<div class="result-error-msg">${escapeHtml(r.message)}</div>`}
+        </div>
+      `).join('');
+    }
+    resultsCount.textContent = `${results.length} imagen${results.length !== 1 ? 'es' : ''}`;
+  }
+
+  clearBtn.addEventListener('click', () => {
+    results = [];
+    renderResults();
+  });
+
+  function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // ── UI STATES ──────────────────────────────────
+  function setLoading(loading) {
+    if (loading) {
+      submitBtn.disabled = true;
+      submitBtn.classList.add('loading');
+      submitBtn.innerHTML = `<div class="spinner"></div> Procesando...`;
+      statusDot.classList.add('active');
+      statusText.textContent = 'Enviando...';
+    } else {
+      submitBtn.classList.remove('loading');
+      submitBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg> Enviar al pipeline`;
+      statusDot.classList.remove('active');
+      statusText.textContent = 'Listo';
+    }
+  }
+
+  // ── PIPELINE ANIMATION ─────────────────────────
+  const pipelineSteps = ['step-api', 'step-lambda-upload', 'step-s3', 'step-sqs', 'step-lambda-crop'];
+  let pipelineTimers = [];
+
+  function animatePipeline() {
+    resetPipeline();
+    pipelineSteps.forEach((id, i) => {
+      const t = setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('active');
+      }, i * 600);
+      pipelineTimers.push(t);
+    });
+  }
+
+  function resetPipeline() {
+    pipelineTimers.forEach(clearTimeout);
+    pipelineTimers = [];
+    pipelineSteps.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.classList.remove('active', 'done'); }
+    });
+  }
+
+  // ── TOAST ──────────────────────────────────────
+  let toastTimer;
+  function showToast(msg, type = 'success') {
+    clearTimeout(toastTimer);
+    toast.textContent = msg;
+    toast.className = `show ${type}`;
+    toastTimer = setTimeout(() => { toast.className = ''; }, 3500);
+  }
+</script>
+</body>
+</html>

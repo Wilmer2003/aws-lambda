@@ -1,0 +1,31 @@
+version = 0.1
+
+# ─── ENTORNO DEV ───────────────────────────────────────────────────────────────
+[dev.deploy.parameters]
+stack_name         = "image-processor-dev"
+resolve_s3         = true
+s3_prefix          = "image-processor-dev"
+region             = "us-east-2"
+confirm_changeset  = false
+capabilities       = "CAPABILITY_IAM"
+parameter_overrides = "Env=dev"
+
+# ─── ENTORNO QA ────────────────────────────────────────────────────────────────
+[qa.deploy.parameters]
+stack_name         = "image-processor-qa"
+resolve_s3         = true
+s3_prefix          = "image-processor-qa"
+region             = "us-east-2"
+confirm_changeset  = true
+capabilities       = "CAPABILITY_IAM"
+parameter_overrides = "Env=qa"
+
+# ─── ENTORNO PROD ──────────────────────────────────────────────────────────────
+[prod.deploy.parameters]
+stack_name         = "image-processor-prod"
+resolve_s3         = true
+s3_prefix          = "image-processor-prod"
+region             = "us-east-2"
+confirm_changeset  = true
+capabilities       = "CAPABILITY_IAM"
+parameter_overrides = "Env=prod"

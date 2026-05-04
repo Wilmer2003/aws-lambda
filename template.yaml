@@ -1,0 +1,520 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Image Processor Pipeline - VPC, S3, SQS - Multi-env (dev/qa/prod)
+ 
+# ─── PARÁMETROS MULTI-ENTORNO ──────────────────────────────────────────────────
+Parameters:
+  Env:
+    Type: String
+    AllowedValues: [dev, qa, prod]
+    Default: dev
+    Description: Entorno de despliegue
+ 
+# ─── GLOBALS ───────────────────────────────────────────────────────────────────
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures: [x86_64]
+    Environment:
+      Variables:
+        ENV: !Ref Env
+ 
+Resources:
+ 
+  # ─── VPC ───────────────────────────────────────────────────────────────────
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub image-processor-${Env}-vpc
+        - Key: Env
+          Value: !Ref Env
+ 
+  # ─── INTERNET GATEWAY ──────────────────────────────────────────────────────
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub image-processor-${Env}-igw
+ 
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref InternetGateway
+ 
+  # ─── SUBREDES PÚBLICAS ─────────────────────────────────────────────────────
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub image-processor-${Env}-public-a
+ 
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub image-processor-${Env}-public-b
+ 
+  # ─── SUBREDES PRIVADAS ─────────────────────────────────────────────────────
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub image-processor-${Env}-private-a
+ 
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.12.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub image-processor-${Env}-private-b
+ 
+  # ─── NAT GATEWAYS ──────────────────────────────────────────────────────────
+  NatEipA:
+    Type: AWS::EC2::EIP
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      Domain: vpc
+ 
+  NatGatewayA:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEipA.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub image-processor-${Env}-nat-a
+ 
+  NatEipB:
+    Type: AWS::EC2::EIP
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      Domain: vpc
+ 
+  NatGatewayB:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEipB.AllocationId
+      SubnetId: !Ref PublicSubnetB
+      Tags:
+        - Key: Name
+          Value: !Sub image-processor-${Env}-nat-b
+ 
+  # ─── TABLAS DE RUTAS ───────────────────────────────────────────────────────
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+ 
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+ 
+  PrivateRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+ 
+  PrivateRouteA:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableA
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayA
+ 
+  PrivateRouteTableB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+ 
+  PrivateRouteB:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableB
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayB
+ 
+  # Asociaciones de subredes a tablas de rutas
+  PubSubAAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+ 
+  PubSubBAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+ 
+  PrivSubAAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTableA
+ 
+  PrivSubBAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      RouteTableId: !Ref PrivateRouteTableB
+ 
+  # ─── SECURITY GROUPS ───────────────────────────────────────────────────────
+  # FIX: Tres SGs separados para romper la dependencia circular.
+  # El diagrama pide sg-upload-lambda, sg-crop-lambda y sg-vpce-sqs.
+ 
+  UploadFunctionSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub SG for upload Lambda - ${Env}
+      VpcId: !Ref MyVPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTPS outbound to S3 endpoint and SQS endpoint
+      Tags:
+        - Key: Name
+          Value: !Sub sg-upload-lambda-${Env}
+ 
+  CropFunctionSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub SG for crop Lambda - ${Env}
+      VpcId: !Ref MyVPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTPS outbound to S3 endpoint and SQS endpoint
+      Tags:
+        - Key: Name
+          Value: !Sub sg-crop-lambda-${Env}
+ 
+  # SG exclusivo para el VPC Interface Endpoint de SQS.
+  # Acepta ingress 443 desde las dos lambdas.
+  # FIX PRINCIPAL: separar este SG evita la dependencia circular.
+  VpceEndpointSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub SG for SQS VPC Interface Endpoint - ${Env}
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref UploadFunctionSG
+          Description: Allow HTTPS from upload Lambda
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref CropFunctionSG
+          Description: Allow HTTPS from crop Lambda
+      Tags:
+        - Key: Name
+          Value: !Sub sg-vpce-sqs-${Env}
+ 
+  # ─── VPC ENDPOINTS ─────────────────────────────────────────────────────────
+  S3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref MyVPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRouteTableA
+        - !Ref PrivateRouteTableB
+ 
+  # FIX: usa VpceEndpointSG en lugar de LambdaSG → rompe la circular dependency
+  SQSEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref MyVPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.sqs
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      SecurityGroupIds:
+        - !Ref VpceEndpointSG
+ 
+  # ─── SQS & DLQ ─────────────────────────────────────────────────────────────
+  # Se declaran ANTES del bucket para que la política exista cuando S3 la valide.
+  ImageDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub image-processor-${Env}-dlq
+      MessageRetentionPeriod: 1209600  # 14 días
+ 
+  ImageQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub image-processor-${Env}-queue
+      VisibilityTimeout: 360
+      MessageRetentionPeriod: 86400  # 1 día
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ImageDLQ.Arn
+        maxReceiveCount: 3
+ 
+  # Política SQS: permite que S3 escriba en la cola.
+  # Usa '*' como Resource para no depender del ARN del bucket antes de que exista.
+  S3ToSQSPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref ImageQueue
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt ImageQueue.Arn
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub arn:aws:s3:::img-proc-${Env}-${AWS::AccountId}-${AWS::Region}
+ 
+  # ─── S3 BUCKET ─────────────────────────────────────────────────────────────
+  # DependsOn S3ToSQSPolicy garantiza que la política SQS exista antes de que
+  # S3 intente validar el destino de la notificación.
+  ImageBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: S3ToSQSPolicy
+    Properties:
+      BucketName: !Sub img-proc-${Env}-${AWS::AccountId}-${AWS::Region}
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireUploads
+            Prefix: uploads/
+            Status: Enabled
+            ExpirationInDays: 30
+          - Id: ExpireProcessed
+            Prefix: processed/
+            Status: Enabled
+            ExpirationInDays: 90
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Queue: !GetAtt ImageQueue.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/
+ 
+  # ─── API GATEWAY HTTP API v2 ────────────────────────────────────────────────
+  # AWS::ApiGatewayV2::Api nativo en lugar de AWS::Serverless::HttpApi para
+  # tener control total del stage y los access logs sin los bugs de SAM.
+  ImageHttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub image-processor-${Env}-api
+      ProtocolType: HTTP
+      Description: !Sub Image Processor HTTP API - ${Env}
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - Content-Type
+          - X-Amz-Date
+          - Authorization
+        AllowMethods:
+          - POST
+          - OPTIONS
+ 
+  # Stage con access logs correctamente configurados (DestinationArn + Format juntos)
+  ImageHttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    DependsOn: ApiGwLogGroup
+    Properties:
+      ApiId: !Ref ImageHttpApi
+      StageName: !Ref Env
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 500
+        ThrottlingRateLimit: 1000
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiGwLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","routeKey":"$context.routeKey","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
+ 
+  # Integración Lambda para UploadFunction
+  UploadIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ImageHttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UploadFunction.Arn}/invocations
+      PayloadFormatVersion: '2.0'
+ 
+  # Ruta POST /upload
+  UploadRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ImageHttpApi
+      RouteKey: POST /upload
+      Target: !Sub integrations/${UploadIntegration}
+ 
+  # Permiso para que API Gateway invoque la UploadFunction
+  UploadFunctionApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt UploadFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ImageHttpApi}/*/*/upload
+ 
+  # ─── CLOUDWATCH LOG GROUPS ─────────────────────────────────────────────────
+  ApiGwLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/apigateway/image-processor-${Env}
+      RetentionInDays: 14
+ 
+  UploadFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/image-processor-${Env}-upload
+      RetentionInDays: 14
+ 
+  CropFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/image-processor-${Env}-crop
+      RetentionInDays: 14
+ 
+  # ─── CLOUDWATCH ALARM DLQ ──────────────────────────────────────────────────
+  DLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub image-processor-${Env}-dlq-messages-alarm
+      AlarmDescription: Hay mensajes visibles en la DLQ — revisar errores de procesamiento
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ImageDLQ.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+ 
+  # ─── LAMBDAS ───────────────────────────────────────────────────────────────
+  UploadFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: UploadFunctionLogGroup
+    Properties:
+      FunctionName: !Sub image-processor-${Env}-upload
+      CodeUri: src/upload/
+      Handler: app.handler
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref ImageBucket
+          UPLOAD_PREFIX: uploads/
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref ImageBucket
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref UploadFunctionSG
+        SubnetIds:
+          - !Ref PrivateSubnetA
+          - !Ref PrivateSubnetB
+  CropFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: CropFunctionLogGroup
+    Properties:
+      FunctionName: !Sub image-processor-${Env}-crop
+      CodeUri: src/crop/
+      Handler: app.handler
+      MemorySize: 512
+      Timeout: 60
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref ImageBucket
+          PROCESSED_PREFIX: processed/
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ImageBucket
+        - S3WritePolicy:
+            BucketName: !Ref ImageBucket
+        - SQSPollerPolicy:
+            QueueName: !GetAtt ImageQueue.QueueName
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref CropFunctionSG
+        SubnetIds:
+          - !Ref PrivateSubnetA
+          - !Ref PrivateSubnetB
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ImageQueue.Arn
+            BatchSize: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+ 
+# ─── OUTPUTS ───────────────────────────────────────────────────────────────────
+Outputs:
+  ApiEndpoint:
+    Description: URL del endpoint de carga de imágenes
+    Value: !Sub https://${ImageHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}/upload
+ 
+  BucketName:
+    Description: Nombre del bucket S3
+    Value: !Ref ImageBucket
+ 
+  QueueUrl:
+    Description: URL de la cola SQS principal
+    Value: !Ref ImageQueue
+ 
+  DLQUrl:
+    Description: URL de la Dead Letter Queue
+    Value: !Ref ImageDLQ
