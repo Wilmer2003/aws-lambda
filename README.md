@@ -9,11 +9,13 @@ Desplegado con AWS SAM en 3 entornos independientes: **DEV**, **QA** y **PROD**.
 
 1. [Arquitectura](#arquitectura)
 2. [Requisitos previos](#requisitos-previos)
-3. [Estructura del proyecto](#estructura-del-proyecto)
-4. [Cómo desplegar](#cómo-desplegar)
-5. [Cómo usar el frontend](#cómo-usar-el-frontend)
-6. [Verificar el flujo en AWS](#verificar-el-flujo-en-aws)
-7. [Cómo destruir los recursos](#cómo-destruir-los-recursos)
+3. [Cómo clonar el repositorio](#cómo-clonar-el-repositorio)
+4. [Estructura del proyecto](#estructura-del-proyecto)
+5. [Cómo desplegar](#cómo-desplegar)
+6. [Cómo usar el frontend](#cómo-usar-el-frontend)
+7. [Verificar el flujo en AWS](#verificar-el-flujo-en-aws)
+8. [Cómo destruir los recursos](#cómo-destruir-los-recursos)
+9. [Evidencia de despliegue](#evidencia-de-despliegue)
 
 ---
 
@@ -73,8 +75,8 @@ aws --version
 # Configurar credenciales
 aws configure
 # Ingresa:
-#   AWS Access Key ID:     <tu access key>
-#   AWS Secret Access Key: <tu secret key>
+#   AWS Access Key ID:     <...>
+#   AWS Secret Access Key: <...>
 #   Default region name:   us-east-2
 #   Default output format: json
 ```
@@ -96,13 +98,29 @@ node --version
 
 ---
 
+## Cómo clonar el repositorio
+
+```bash
+# 1. Clona el repositorio
+git clone https://github.com/Wilmer2003/aws-lambda.git
+
+# 2. Entra a la carpeta del proyecto
+cd aws-lambda
+
+# 3. Instala las dependencias de cada función Lambda
+cd src/upload && npm install && cd ../..
+cd src/crop   && npm install && cd ../..
+```
+
+---
+
 ## Estructura del proyecto
 
 ```
-Tarea_IAC/
+aws-lambda-image-processor/
 ├── template.yaml          # Infraestructura completa (SAM + CloudFormation)
 ├── samconfig.toml         # Configuración de deploy por entorno
-├── README.md              # Este archivo
+├── README.md              
 │
 ├── src/
 │   ├── upload/
@@ -129,21 +147,11 @@ Ejecuta siempre antes de cualquier deploy:
 sam build
 ```
 
-Resultado esperado:
-
-```
-Build Succeeded
-Built Artifacts  : .aws-sam\build
-Built Template   : .aws-sam\build\template.yaml
-```
-
 ### Paso 2 — Deploy DEV
 
 ```bash
 sam deploy --config-env dev
 ```
-
-No pide confirmación. Al terminar muestra los Outputs con las URLs.
 
 ### Paso 3 — Deploy QA
 
@@ -151,15 +159,11 @@ No pide confirmación. Al terminar muestra los Outputs con las URLs.
 sam deploy --config-env qa
 ```
 
-Pide confirmación del changeset — responde `y` y presiona Enter.
-
 ### Paso 4 — Deploy PROD
 
 ```bash
 sam deploy --config-env prod
 ```
-
-Pide confirmación del changeset — responde `y` y presiona Enter.
 
 ### Outputs del deploy
 
@@ -179,23 +183,16 @@ Key         DLQUrl
 Value       https://sqs.us-east-2.amazonaws.com/507744946112/image-processor-dev-dlq
 ```
 
-Copiamos el valor de `ApiEndpoint` — lo necesitamops para el frontend.
-
 ---
 
 ## Cómo usar el frontend
 
-1. Abrimos `frontend/index.html` en el navegador.
-
-2. Seleccionamos el entorno **DEV**, **QA** o **PROD** en el panel izquierdo.
-
-3. Pegamos el `ApiEndpoint` del output de `sam deploy` en el campo **API Endpoint**.
-
-4. Arrastramos una imagen (jpg, png) o hacemos clic en el boton de seleccionar archivo.
-
-5. Hacemos clic en **Seleccionar arhivo**.
-
-6. Si todo funciona veremoss `[OK]` en el log con la clave S3 del archivo guardado.
+1. Abre `frontend/index.html` en el navegador.
+2. Selecciona el entorno **DEV**, **QA** o **PROD** en el panel izquierdo.
+3. Pega el `ApiEndpoint` del output de `sam deploy` en el campo **API Endpoint**.
+4. Arrastra una imagen (jpg, png) o haz clic en el botón de seleccionar archivo.
+5. Haz clic en **Enviar al pipeline**.
+6. Si todo funciona verás `[OK]` en el log con la clave S3 del archivo guardado.
 
 ---
 
@@ -232,8 +229,10 @@ aws logs tail /aws/lambda/image-processor-dev-upload --follow --region us-east-2
 aws logs tail /aws/lambda/image-processor-dev-crop --follow --region us-east-2
 ```
 
+---
+
 ## Cómo destruir los recursos
- 
+
 > AWS no elimina buckets S3 con archivos — hay que vaciarlos primero.
 
 ### Paso 1 — Vaciar los buckets S3
@@ -256,14 +255,75 @@ aws cloudformation delete-stack --stack-name image-processor-dev --region us-eas
 aws cloudformation delete-stack --stack-name image-processor-qa --region us-east-2
 aws cloudformation delete-stack --stack-name image-processor-prod --region us-east-2
 ```
+---
 
-### Paso 3 — Verificar eliminación
+## Evidencia de despliegue
 
-```bash
-aws cloudformation list-stacks \
-  --stack-status-filter DELETE_COMPLETE \
-  --region us-east-2 \
-  --query "StackSummaries[?contains(StackName,'image-processor')].{Nombre:StackName,Estado:StackStatus}" \
-  --output table
-```
+### 1. — Los 3 stacks activos en CloudFormation
 
+![CloudFormation 3 stacks](Evidencias/01-stacks activos.jpg)
+
+---
+
+### 2.— Outputs del stack DEV 
+
+![Outputs DEV ](Evidencias/02-Dev.jpg)
+
+---
+
+### 3. — Outputs del stack QA
+
+![Outputs STACK](Evidencias/03-stack QA.jpg)
+
+---
+
+### 4. — Outputs del stack PROD
+
+![Outputs PROD](Evidencias/04-stack PROD.jpg)
+
+---
+### 5. Evidencia del flujo funcionando 
+![Outputs flujo](Evidencias/05-flujo vista.jpg)
+
+---
+### 6. Carpetas dentro de amazon S3
+![Outputs carpetas S3](Evidencias/13-carpetas.jpg)
+ 
+---
+### 7. Carpeta uploads en S3
+Imágenes originales guardadas bajo `uploads/` en el bucket de DEV.
+
+![Outputs carpetas S3](Evidencias/06-imagen subida dev.jpg)
+
+
+Imagen original
+
+![Outputs carpetas S3](Evidencias/07-imagen original.jpg)
+
+---
+### 7. Carpeta processed en S3
+
+Imágenes originales guardadas bajo `processed/` en el bucket de DEV.
+
+![Outputs carpetas S3](Evidencias/09-imagen procesada.jpg)
+
+
+Imagen procesada
+
+![Outputs carpetas S3](Evidencias/10-imagen.jpg)
+
+---
+
+### 8. Logs en CloudWatch
+
+Ejecuciones de `CropFunction` en CloudWatch.
+
+![CloudWatch logs](Evidencias/11-cloudwatxh.jpg)
+
+---
+
+### 9. Recursos destruidos, stack eliminados en cloudformation
+
+Los 3 stacks en estado `DELETE_COMPLETE` confirmando que todos los recursos fueron eliminados.
+
+![Stacks eliminados](Evidencias/12-destroy.jpg)
