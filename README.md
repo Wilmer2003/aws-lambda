@@ -164,25 +164,6 @@ sam deploy --config-env qa
 ```bash
 sam deploy --config-env prod
 ```
-
-### Outputs del deploy
-
-Al finalizar cada deploy aparecerá una tabla como esta:
-
-```
-Key         ApiEndpoint
-Value       https://xxxx.execute-api.us-east-2.amazonaws.com/dev/upload
-
-Key         BucketName
-Value       img-proc-dev-507744946112-us-east-2
-
-Key         QueueUrl
-Value       https://sqs.us-east-2.amazonaws.com/507744946112/image-processor-dev-queue
-
-Key         DLQUrl
-Value       https://sqs.us-east-2.amazonaws.com/507744946112/image-processor-dev-dlq
-```
-
 ---
 
 ## Cómo usar el frontend
@@ -218,17 +199,6 @@ aws s3 ls s3://img-proc-dev-<ACCOUNT_ID>-us-east-2/processed/ --region us-east-2
 # Descargar una imagen procesada
 aws s3 cp s3://img-proc-dev-<ACCOUNT_ID>-us-east-2/processed/<archivo>.png ./resultado.png --region us-east-2
 ```
-
-### Ver logs de las Lambdas en tiempo real
-
-```bash
-# Logs de UploadFunction
-aws logs tail /aws/lambda/image-processor-dev-upload --follow --region us-east-2
-
-# Logs de CropFunction
-aws logs tail /aws/lambda/image-processor-dev-crop --follow --region us-east-2
-```
-
 ---
 
 ## Cómo destruir los recursos
@@ -261,7 +231,7 @@ aws cloudformation delete-stack --stack-name image-processor-prod --region us-ea
 
 ### 1. — Los 3 stacks activos en CloudFormation
 
-![CloudFormation 3 stacks](Evidencias/01-stacks activos.jpg)
+![CloudFormation 3 stacks](Evidencias/01-stacks-activos.jpg)
 
 ---
 
@@ -273,17 +243,17 @@ aws cloudformation delete-stack --stack-name image-processor-prod --region us-ea
 
 ### 3. — Outputs del stack QA
 
-![Outputs STACK](Evidencias/03-stack QA.jpg)
+![Outputs STACK](Evidencias/03-stack-QA.jpg)
 
 ---
 
 ### 4. — Outputs del stack PROD
 
-![Outputs PROD](Evidencias/04-stack PROD.jpg)
+![Outputs PROD](Evidencias/04-stack-PROD.jpg)
 
 ---
 ### 5. Evidencia del flujo funcionando 
-![Outputs flujo](Evidencias/05-flujo vista.jpg)
+![Outputs flujo](Evidencias/05-flujo-vista.jpg)
 
 ---
 ### 6. Carpetas dentro de amazon S3
@@ -293,19 +263,19 @@ aws cloudformation delete-stack --stack-name image-processor-prod --region us-ea
 ### 7. Carpeta uploads en S3
 Imágenes originales guardadas bajo `uploads/` en el bucket de DEV.
 
-![Outputs carpetas S3](Evidencias/06-imagen subida dev.jpg)
+![Outputs carpetas S3](Evidencias/06-imagen-subida-dev.jpg)
 
 
 Imagen original
 
-![Outputs carpetas S3](Evidencias/07-imagen original.jpg)
+![Outputs carpetas S3](Evidencias/07-imagen-original.jpg)
 
 ---
 ### 7. Carpeta processed en S3
 
 Imágenes originales guardadas bajo `processed/` en el bucket de DEV.
 
-![Outputs carpetas S3](Evidencias/09-imagen procesada.jpg)
+![Outputs carpetas S3](Evidencias/09-imagen-procesada.jpg)
 
 
 Imagen procesada
